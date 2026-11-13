@@ -184,6 +184,15 @@ table.qt{width:100%;border-collapse:collapse;min-width:980px}
 .qt .acts{display:flex;gap:6px;justify-content:flex-end}
 .qt .acts button{font-size:13px;padding:5px 9px}
 .qt tr:hover td{background:var(--surface-2)}
+.pe{border:1px solid var(--line);border-radius:10px;padding:14px;margin:0 0 16px}
+.pe h4{margin:0 0 10px;font-size:15px;font-weight:600}
+.pe .results{position:static;box-shadow:none;margin-top:6px;max-height:220px}
+.pe .grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}
+@media (max-width:640px){.pe .grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.pe .pehead{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-top:12px}
+.pe .peout{margin-top:10px;font-size:14px}
+.pe .row2{display:flex;gap:8px;margin-top:12px}
+.pe .row2 button{margin-top:0;width:auto;flex:0 0 auto;padding:10px 16px;font-size:15px}
 .qlist{list-style:none;margin:0;padding:0}
 .qlist li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
 .qlist .qm{font-size:13px;color:var(--muted)}
@@ -384,7 +393,7 @@ table.qt{width:100%;border-collapse:collapse;min-width:980px}
   <div class="db">
     <p class="hint" style="margin-top:0">People on this list sign in with Google or with their own email and a password (any email address works), make quotes, and see all saved quotes and customers. Only you, the owner, can change this list or the price list.</p>
     <ul class="qlist" id="teamList"></ul>
-    <div class="qtools" style="margin-top:12px"><label class="f">Gmail address<input id="teamEmail" type="email" autocomplete="off" placeholder="name@gmail.com"></label><button class="ghost" id="btnTeamAdd" type="button">Add</button></div>
+    <div class="qtools" style="margin-top:12px"><label class="f">Email address<input id="teamEmail" type="email" autocomplete="off" placeholder="name@example.com"></label><button class="ghost" id="btnTeamAdd" type="button">Add</button></div>
     <div class="msg" id="teamMsg" hidden></div>
   </div>
 </dialog>
@@ -393,6 +402,25 @@ table.qt{width:100%;border-collapse:collapse;min-width:980px}
   <div class="dh"><h3 id="dPricesH">Price list</h3><button class="ghost" data-close>Close</button></div>
   <div class="db">
     <dl class="facts" id="priceFacts"></dl>
+    <section class="pe" id="editBox" hidden aria-labelledby="peH">
+      <h4 id="peH">Change one product</h4>
+      <label class="f">Find the product<input id="peFind" type="search" autocomplete="off" placeholder="Search name, brand or code"></label>
+      <ul class="results" id="peRes" role="listbox" hidden></ul>
+      <div id="peForm" hidden>
+        <div class="pehead"><strong id="peName"></strong><span class="hint" id="peCode"></span></div>
+        <div class="grid4">
+          <label class="f">Cost / Proc Rate (₹)<input id="peCost" inputmode="decimal"></label>
+          <label class="f">GM %<input id="peGm" inputmode="decimal"></label>
+          <label class="f">Basic price (₹)<input id="peBasic" inputmode="decimal"></label>
+          <label class="f">Tax %<input id="peTax" inputmode="decimal"></label>
+        </div>
+        <div class="peout num" id="peOut"></div>
+        <div class="hint" style="margin-top:4px">Changing the cost keeps the GM % and moves the basic price with it, as in your Price Master.</div>
+        <div class="row2"><button class="primary" id="btnPeSave" type="button">Save for everyone</button><button class="secondary" id="btnPeCancel" type="button">Cancel</button></div>
+      </div>
+      <div class="msg" id="peMsg" hidden></div>
+    </section>
+    <button class="secondary" id="btnPlDown" type="button" style="margin:0 0 16px">Download price list (Excel)</button>
     <div id="uploadBox" hidden>
       <div class="upload">
         <p style="margin:0 0 10px">Upload the latest price list (.xlsx) in the same format as the Price Master sheet. It replaces the prices for everyone on your team.</p>
@@ -1200,10 +1228,84 @@ function renderPriceFacts(por) {
     <dt>Price on request</dt><dd>${por ? por + " (rate typed per quote): " + esc(PRODUCTS.filter(p => !p.p).map(p => p.n).slice(0, 6).join(", ")) : "None"}</dd>`;
 }
 $("#btnPrices").addEventListener("click", () => {
+  $("#editBox").hidden = !(DB && CAN_EDIT);
+  $("#peFind").value = ""; $("#peRes").hidden = true; $("#peForm").hidden = true; say($("#peMsg"), "", "");
   $("#uploadBox").hidden = !(DB && CAN_EDIT);
   $("#uploadNote").hidden = !!(DB && CAN_EDIT) || !DB;
   renderPriceFacts(); $("#dPrices").showModal();
 });
+/* ---------- edit one product (owner) ---------- */
+let PE = null; // { code, cost, basic, tax }
+const pnum = v => { const x = parseFloat(String(v).replace(/[₹,\s]/g, "")); return isFinite(x) ? x : NaN; };
+function peRender(src) {
+  const { cost, basic, tax } = PE;
+  const gm = cost > 0 && basic > 0 ? (basic - cost) / cost * 100 : null;
+  if (src !== "cost") $("#peCost").value = cost > 0 ? r2(cost) : "";
+  if (src !== "basic") $("#peBasic").value = basic > 0 ? r2(basic) : "";
+  if (src !== "gm") $("#peGm").value = gm !== null ? r1(gm) : "";
+  if (src !== "tax") $("#peTax").value = tax;
+  const p = PRODUCTS.find(x => x.c === PE.code);
+  const net = basic > 0 ? r2(basic * (1 + tax / 100)) : 0;
+  const was = p ? `Now: cost ${p.r ? rs(p.r) : "not set"}, price ${p.p ? rs(p.p) : "on request"} incl. GST.` : "";
+  $("#peOut").innerHTML = `New price incl. GST: <strong>${net ? rs(net) : "on request"}</strong>${gm !== null ? ` · GM ${r1(gm)}%` : ""}${gm !== null && gm < 0 ? ' · <span style="color:var(--danger)">below cost</span>' : ""}<br><span class="hint">${esc(was)}</span>`;
+}
+function pePick(p) {
+  PE = { code: p.c, cost: +p.r || 0, basic: p.p ? p.p / (1 + p.t / 100) : 0, tax: p.t };
+  $("#peName").textContent = p.n; $("#peCode").textContent = [p.x ? "" : p.c, "per " + p.u].filter(Boolean).join(" · ");
+  $("#peRes").hidden = true; $("#peForm").hidden = false; say($("#peMsg"), "", "");
+  peRender(); $("#peCost").focus(); $("#peCost").select();
+}
+$("#peFind").addEventListener("input", () => {
+  const toks = $("#peFind").value.toLowerCase().split(/\s+/).filter(Boolean), ul = $("#peRes");
+  if (!toks.length) { ul.hidden = true; return; }
+  const hits = PRODUCTS.filter(p => toks.every(t => p._s.includes(t))).slice(0, 12);
+  ul.innerHTML = hits.length ? hits.map((p, i) => `<li role="option" data-c="${esc(p.c)}" aria-selected="${i === 0}"><span class="rn">${esc(p.n)}</span><span class="rm">${esc([p.b, p.x ? "" : p.c].filter(Boolean).join(", "))}</span><span class="rp num">${p.r ? "cost " + rs(p.r) : "no cost"}<small>${p.p ? rs(p.p) + " incl. GST" : "price on request"}</small></span></li>`).join("")
+    : `<li class="empty">No products match.</li>`;
+  ul.hidden = false;
+});
+$("#peFind").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); const li = $("#peRes li[data-c]"); if (li) pePick(byCode.get(li.dataset.c)); } });
+$("#peRes").addEventListener("click", e => { const li = e.target.closest("li[data-c]"); if (li) pePick(byCode.get(li.dataset.c)); });
+["#peCost", "#peGm", "#peBasic", "#peTax"].forEach(id => $(id).addEventListener("input", e => {
+  if (!PE) return; const v = pnum(e.target.value);
+  if (id === "#peCost") { const gm = PE.cost > 0 && PE.basic > 0 ? PE.basic / PE.cost : null; PE.cost = v > 0 ? v : 0; if (gm && PE.cost) PE.basic = PE.cost * gm; peRender("cost"); }
+  else if (id === "#peGm") { if (!(PE.cost > 0) || isNaN(v) || v <= -100) return; PE.basic = PE.cost * (1 + v / 100); peRender("gm"); }
+  else if (id === "#peBasic") { PE.basic = v > 0 ? v : 0; peRender("basic"); }
+  else { if (isNaN(v) || v < 0) return; PE.tax = r2(v); peRender("tax"); }
+}));
+$("#btnPeCancel").addEventListener("click", () => { $("#peForm").hidden = true; PE = null; $("#peFind").focus(); });
+$("#btnPeSave").addEventListener("click", async () => {
+  if (!PE || !DB) return;
+  const btn = $("#btnPeSave"); btn.disabled = true;
+  const items = PRODUCTS.map(({ c, n, b, k, u, t, p, r, x }) => ({ c, n, b, k, u, t, p, r: r || 0, ...(x ? { x: 1 } : {}) }));
+  const it = items.find(x => x.c === PE.code);
+  if (!it) { btn.disabled = false; return; }
+  it.r = PE.cost > 0 ? r2(PE.cost) : 0; it.t = PE.tax; it.p = PE.basic > 0 ? r2(PE.basic * (1 + PE.tax / 100)) : 0;
+  try {
+    await DB.doc("config/pricelist").set({ items, fileName: listMeta.fileName || "Price_Master.xlsx", updatedAt: new Date().toISOString(), lastEdit: { code: it.c, name: it.n, by: ME ? ME.email : "" } });
+    say($("#peMsg"), "ok", `${it.n} saved: cost ${it.r ? rs(it.r) : "not set"}, price ${it.p ? rs(it.p) : "on request"} incl. GST. New quotes use it from now on. Use Download price list to update your Excel sheet too.`);
+    $("#peForm").hidden = true; PE = null; $("#peFind").value = ""; $("#peRes").hidden = true;
+  } catch (er) { say($("#peMsg"), "err", "Couldn’t save: " + (er.message || er.code)); }
+  finally { btn.disabled = false; }
+});
+
+/* ---------- download the price list in Price Master format ---------- */
+$("#btnPlDown").addEventListener("click", async () => {
+  try { await loadXlsxLib(); } catch (e) { alert(e.message); return; }
+  const rows = PRODUCTS.map((p, i) => {
+    const basic = p.p ? p.p / (1 + p.t / 100) : ""; // full precision so a re-upload gives back the same price
+    return { "S.No": i + 1, "Stock Name": p.n, "Brand": p.b || "", "Category": p.k, "Product Code": p.x ? "" : p.c, "per": p.u,
+      "Proc Rate": p.r || "", "Tax %": r2(p.t / 100 * 10000) / 10000, "GM%": p.r && basic ? Math.round((basic - p.r) / p.r * 10000) / 10000 : "",
+      "Basic Price without tax": basic, "Unit Price INR with tax": p.p || "" };
+  });
+  const ws = XLSX.utils.json_to_sheet(rows), wb = XLSX.utils.book_new();
+  ws["!cols"] = [6, 42, 16, 30, 13, 6, 11, 7, 7, 12, 12].map(w => ({ wch: w }));
+  // show money with 2 decimals and Tax % / GM% as percentages
+  const fmts = { G: "0.00", H: "0%", I: "0.0%", J: "0.00", K: "0.00" };
+  for (let i = 2; i <= rows.length + 1; i++) for (const [col, z] of Object.entries(fmts)) { const c = ws[col + i]; if (c && typeof c.v === "number") c.z = z; }
+  XLSX.utils.book_append_sheet(wb, ws, "Price list");
+  XLSX.writeFile(wb, `Price_Master_${todayISO()}.xlsx`);
+});
+
 function loadXlsxLib() {
   if (window.XLSX) return Promise.resolve();
   return new Promise((res, rej) => {
