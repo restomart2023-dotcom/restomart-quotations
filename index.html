@@ -1415,7 +1415,7 @@ $("#btnTeamAdd").addEventListener("click", () => {
   const el = $("#teamEmail"), e = el.value.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { say($("#teamMsg"), "err", "Enter a full email address, like name@gmail.com."); el.focus(); return; }
   if (e === OWNER_EMAIL.toLowerCase() || ADMINS.includes(e)) { say($("#teamMsg"), "info", e + " already has access."); return; }
-  el.value = ""; saveAdmins([...ADMINS, e], `${e} can now sign in. Send them the link: they use Google if it’s a Google account, or Create account with this email.`);
+  el.value = ""; saveAdmins([...ADMINS, e], `${e} can now sign in. Send them the link: Gmail users click Sign in with Google; everyone else types this email, picks a password and clicks Create account.`);
 });
 $("#teamEmail").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("#btnTeamAdd").click(); } });
 $("#teamList").addEventListener("click", e => {
@@ -1529,7 +1529,7 @@ else {
     const { email, pass } = creds();
     if (!email || pass.length < 6) { gMsg("err", "Enter your email and choose a password of at least 6 characters, then press Create account."); return; }
     gMsg("info", "Creating your account…");
-    try { const r = await AUTH.createUserWithEmailAndPassword(email, pass); await r.user.sendEmailVerification(); gMsg("", ""); }
+    try { await AUTH.createUserWithEmailAndPassword(email, pass); gMsg("", ""); }
     catch (er) { gMsg("err", authErr(er)); }
   });
   $("#btnForgot").addEventListener("click", async () => {
@@ -1553,7 +1553,9 @@ else {
   async function checkAccess(u) {
     stopSubs(); DB = null; ME = null; CAN_EDIT = false; $("#btnTeam").hidden = true;
     if (!u) { showGate("Sign in to make and view quotes.", "in"); return; }
-    if (!u.emailVerified) { showGate(`We sent a verification link to ${u.email}. Click it (check spam too), then come back and press the button below.`, "verify"); return; }
+    // Google accounts are verified by Google; team members using email + password need no verification email
+    const viaPassword = (u.providerData || []).some(p => p && p.providerId === "password");
+    if (!u.emailVerified && !viaPassword) { showGate(`${u.email} isn’t verified. Sign in with Google, or use a different account.`, "out"); return; }
     showGate("Checking access for " + u.email + "…", "");
     let acc;
     try { acc = await FS.doc("config/access").get(); }
