@@ -392,7 +392,7 @@ table.qt{width:100%;border-collapse:collapse;min-width:980px}
 <dialog id="dTeam" aria-labelledby="dTeamH">
   <div class="dh"><h3 id="dTeamH">Team</h3><button class="ghost" data-close>Close</button></div>
   <div class="db">
-    <p class="hint" style="margin-top:0">People on this list sign in with Google or with their own email and a password (any email address works), make quotes, and see all saved quotes and customers. Only you, the owner, can change this list or the price list.</p>
+    <p class="hint" style="margin-top:0">People on this list sign in with Google or with their own email and a password (any email address works), make quotes, and see all saved quotes and customers. Only owners can change this list or the price list. Make someone a co-owner only after they’ve signed in once.</p>
     <ul class="qlist" id="teamList"></ul>
     <div class="qtools" style="margin-top:12px"><label class="f">Email address<input id="teamEmail" type="email" autocomplete="off" placeholder="name@example.com"></label><button class="ghost" id="btnTeamAdd" type="button">Add</button></div>
     <div class="msg" id="teamMsg" hidden></div>
@@ -1400,16 +1400,24 @@ if (!Q.lines.length) qEl.focus();
 
 /* ---------- team (owner only) ---------- */
 let ME = null, ADMINS = [], UNSUBS = [];
+let OWNERS = [];
+const ME_EMAIL = () => (ME && ME.email || "").toLowerCase();
 function renderTeam() {
-  $("#teamList").innerHTML = [`<li><div><strong>${esc(OWNER_EMAIL)}</strong></div><div class="qm">Owner</div></li>`]
-    .concat(ADMINS.map((e, i) => `<li><div>${esc(e)}</div><div class="qm">Can make and view quotes</div><div class="qa"><button class="ghost" type="button" data-rm="${i}">Remove</button></div></li>`)).join("");
+  $("#teamList").innerHTML = [`<li><div><strong>${esc(OWNER_EMAIL)}</strong></div><div class="qm">Main owner</div></li>`]
+    .concat(ADMINS.map((e, i) => {
+      const own = OWNERS.includes(e), me = e === ME_EMAIL();
+      return `<li><div>${esc(e)}${me ? " (you)" : ""}</div><div class="qm">${own ? "Co-owner: manages team and prices" : "Can make and view quotes"}</div>
+        <div class="qa">${me ? "" : `<button class="ghost" type="button" data-own="${i}">${own ? "Make member" : "Make co-owner"}</button><button class="ghost" type="button" data-rm="${i}">Remove</button>`}</div></li>`;
+    })).join("");
 }
-async function saveAdmins(list, okText) {
+async function saveAccess(admins, owners, okText) {
+  owners = owners.filter(o => admins.includes(o));
   try {
-    await DB.doc("config/access").set({ admins: list, updatedAt: new Date().toISOString() });
-    ADMINS = list; renderTeam(); say($("#teamMsg"), "ok", okText);
+    await DB.doc("config/access").set({ admins, owners, updatedAt: new Date().toISOString() });
+    ADMINS = admins; OWNERS = owners; renderTeam(); say($("#teamMsg"), "ok", okText);
   } catch (e) { say($("#teamMsg"), "err", "Couldn’t save the team list: " + (e.message || e.code)); }
 }
+const saveAdmins = (list, okText) => saveAccess(list, OWNERS, okText);
 $("#btnTeam").addEventListener("click", () => { renderTeam(); say($("#teamMsg"), "", ""); $("#dTeam").showModal(); $("#teamEmail").focus(); });
 $("#btnTeamAdd").addEventListener("click", () => {
   const el = $("#teamEmail"), e = el.value.trim().toLowerCase();
@@ -1419,6 +1427,14 @@ $("#btnTeamAdd").addEventListener("click", () => {
 });
 $("#teamEmail").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("#btnTeamAdd").click(); } });
 $("#teamList").addEventListener("click", e => {
+  const o = e.target.closest("button[data-own]");
+  if (o) {
+    const who = ADMINS[+o.dataset.own]; if (!who) return;
+    if (OWNERS.includes(who)) { saveAccess(ADMINS, OWNERS.filter(x => x !== who), `${who} is now a member.`); return; }
+    if (!confirm(`Make ${who} a co-owner? They’ll be able to add and remove people, change prices and replace the price list. Only do this once they’ve signed in at least once.`)) return;
+    saveAccess(ADMINS, [...OWNERS, who], `${who} is now a co-owner. They’ll see the Team button after reloading.`);
+    return;
+  }
   const b = e.target.closest("button[data-rm]"); if (!b) return;
   const who = ADMINS[+b.dataset.rm]; if (!who || !confirm(`Remove ${who}? They won’t be able to sign in any more.`)) return;
   saveAdmins(ADMINS.filter(x => x !== who), `${who} removed.`);
@@ -1483,6 +1499,7 @@ function startData() {
   }, () => { clearTimeout(timer); }));
   if (CAN_EDIT) UNSUBS.push(DB.doc("config/access").onSnapshot(s => {
     ADMINS = s.exists && Array.isArray(s.data().admins) ? s.data().admins : [];
+    OWNERS = s.exists && Array.isArray(s.data().owners) ? s.data().owners : [];
     if ($("#dTeam").open) renderTeam();
   }, () => {}));
 }
@@ -1564,8 +1581,10 @@ else {
       else showGate("Couldn’t reach the database (" + (e.message || e.code) + "). Check your connection and reload.", "out");
       return;
     }
-    ME = u; DB = FS; CAN_EDIT = (u.email || "").toLowerCase() === OWNER_EMAIL.toLowerCase();
     ADMINS = acc.exists && Array.isArray(acc.data().admins) ? acc.data().admins : [];
+    OWNERS = acc.exists && Array.isArray(acc.data().owners) ? acc.data().owners : [];
+    const em = (u.email || "").toLowerCase();
+    ME = u; DB = FS; CAN_EDIT = em === OWNER_EMAIL.toLowerCase() || OWNERS.includes(em);
     $("#btnOut").title = "Signed in as " + u.email;
     $("#btnTeam").hidden = !CAN_EDIT;
     gate.hidden = true;
