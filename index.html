@@ -250,6 +250,40 @@ table.qt{width:100%;border-collapse:collapse;min-width:980px}
 .gcard .row2{display:flex;gap:8px}
 .gcard .row2 button{flex:1;margin-top:0}
 .linkbtn{background:none;border:0;color:var(--brand-ink);cursor:pointer;padding:4px;font-size:13px;text-decoration:underline;align-self:center}
+/* quote chat */
+.chat{position:fixed;z-index:60;top:0;right:0;bottom:0;width:min(420px,100vw);background:var(--surface);border-left:1px solid var(--line);display:flex;flex-direction:column;box-shadow:-12px 0 32px rgba(0,0,0,.12);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.chat[hidden]{display:none}
+.chat .ch{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.chat .ch h2{margin:0;font-size:16px;font-weight:600;flex:1}
+.chat .ch .hint{display:block;font-weight:400}
+.chat .log{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.bub{max-width:88%;padding:9px 12px;border-radius:12px;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.bub.me{align-self:flex-end;background:var(--brand);color:var(--on-brand);border-bottom-right-radius:4px;white-space:pre-wrap}
+.bub.bot{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.bub.bot.err{background:var(--danger-soft);color:var(--danger);border-color:transparent}
+.bub.bot.ok{background:var(--brand-soft);color:var(--brand-ink);border-color:transparent}
+.bub p{margin:0}.bub p+p,.bub p+ul,.bub ul+p{margin-top:6px}
+.bub ul{margin:4px 0 0;padding-left:18px}
+.bub .tot{display:block;margin-top:6px;font-size:13px;color:var(--muted)}
+.bub.ok .tot{color:inherit}
+.picks{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.picks button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:13px;color:var(--ink)}
+.picks button:hover{border-color:var(--brand);background:var(--brand-soft)}
+.picks button b{font-weight:500;color:var(--muted)}
+.picks button .pp{font-variant-numeric:tabular-nums;color:var(--muted)}
+.picks button.skip{display:block;color:var(--muted);text-align:center}
+.picks.done button{pointer-events:none;opacity:.5}
+.picks.done button.chosen{opacity:1;border-color:var(--brand)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chips button{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer;color:var(--ink)}
+.chips button:hover{border-color:var(--brand)}
+.chat .cin{display:flex;gap:8px;align-items:end;padding:12px 16px 14px;border-top:1px solid var(--line)}
+.chat textarea{flex:1;resize:none;border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:15px;max-height:140px;min-height:44px;color:var(--ink)}
+.chat textarea:focus{border-color:var(--brand);outline:none;box-shadow:0 0 0 3px var(--brand-soft)}
+.chat .send{background:var(--brand);color:var(--on-brand);border:0;border-radius:10px;height:44px;padding:0 16px;font-weight:600;cursor:pointer}
+.chat .send:disabled{opacity:.6;cursor:progress}
+#btnChat{display:inline-flex;gap:6px;align-items:center;border-color:var(--brand);color:var(--brand-ink)}
+#btnChat[aria-expanded="true"]{background:var(--brand-soft)}
 </style>
 </head>
 <body>
@@ -279,6 +313,7 @@ table.qt{width:100%;border-collapse:collapse;min-width:980px}
   </div>
   <div class="spacer"></div>
   <nav class="nav" aria-label="Pages"><button type="button" id="navNew" aria-current="page">Quote</button><button type="button" id="navList">Saved quotes</button></nav>
+  <button class="ghost" id="btnChat" type="button" aria-expanded="false" aria-controls="chat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Chat</button>
   <button class="ghost" id="btnTeam" type="button" hidden>Team</button>
   <button class="ghost" id="btnPrices" type="button">Price list</button>
 
@@ -434,6 +469,17 @@ table.qt{width:100%;border-collapse:collapse;min-width:980px}
   </div>
 </dialog>
 
+<aside class="chat" id="chat" hidden aria-labelledby="chatH">
+  <div class="ch">
+    <h2 id="chatH">Quote chat<span class="hint">Type items and quantities; the quote fills in as you go.</span></h2>
+    <button class="ghost" id="chatClose" type="button">Close</button>
+  </div>
+  <div class="log" id="chatLog" role="log" aria-live="polite"></div>
+  <div class="cin">
+    <textarea id="chatIn" rows="1" placeholder="e.g. paneer 1kg 5, gm 12" aria-label="Message"></textarea>
+    <button class="send" id="chatSend" type="button">Send</button>
+  </div>
+</aside>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -1503,6 +1549,300 @@ function startData() {
     if ($("#dTeam").open) renderTeam();
   }, () => {}));
 }
+/* ---------- quote chat ----------
+   A built-in assistant (no AI service): it reads lines like
+   "quote for Dubai Cafe", "amul salted butter 500g 10", "gm 12", "net 15", "pdf"
+   and drives the same functions as the quote page. */
+const CHAT = { pend: [], seq: 0, busy: false };
+const chatEl = $("#chat"), chatLog = $("#chatLog"), chatIn = $("#chatIn");
+const UNIT_RX = [
+  [/(\d+(?:\.\d+)?)\s*(?:kgs?|kilos?|kilograms?)\b/g, "$1kg"],
+  [/(\d+(?:\.\d+)?)\s*(?:mls?|millilit(?:re|er)s?)\b/g, "$1ml"],
+  [/(\d+(?:\.\d+)?)\s*(?:gms?|grams?|grm?s?|g)\b/g, "$1g"],
+  [/(\d+(?:\.\d+)?)\s*(?:ltrs?|lit(?:re|er)s?|lt|l)\b/g, "$1l"]
+];
+function cNorm(s) {
+  let t = String(s || "").toLowerCase().replace(/[×*]/g, " x ").replace(/[^a-z0-9.%\s-]/g, " ");
+  UNIT_RX.forEach(([rx, to]) => { t = t.replace(rx, to); });
+  return t.replace(/\s+/g, " ").trim();
+}
+const SIZE = /^\d+(?:\.\d+)?(?:kg|g|l|ml)$/;
+const NUM = /^\d+(?:\.\d+)?$/;
+const COUNT_WORDS = /^(nos?|pcs?|pieces?|packs?|packets?|pkts?|units?|bags?|bottles?|tins?|boxes|box|cans?|jars?|cases?|qty)$/;
+function lev(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 9;
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+let C_IDX = null, C_SRC = null;
+function cIndex() {
+  if (C_SRC === PRODUCTS) return C_IDX;
+  C_SRC = PRODUCTS;
+  C_IDX = PRODUCTS.map(p => { const n = cNorm(p.n); return { p, n, w: n.split(" "), o: cNorm([p.b, p.c, p.k].join(" ")) }; });
+  return C_IDX;
+}
+// split one item phrase into search words and a quantity
+function cParseItem(text) {
+  let w = cNorm(text).split(" ").filter(Boolean), q = null;
+  for (let i = 0; i < w.length && q === null; i++) {
+    let m;
+    if ((m = w[i].match(/^x(\d+(?:\.\d+)?)$/)) || (m = w[i].match(/^(\d+(?:\.\d+)?)x$/))) { q = +m[1]; w.splice(i, 1); }
+    else if (w[i] === "x" && NUM.test(w[i + 1] || "")) { q = +w[i + 1]; w.splice(i, 2); }
+  }
+  if (q === null) {
+    for (let i = w.length - 1; i >= 0; i--) if (NUM.test(w[i])) { q = +w[i]; w.splice(i, 1); if (COUNT_WORDS.test(w[i] || "")) w.splice(i, 1); break; }
+  }
+  w = w.filter(t => !COUNT_WORDS.test(t) && t !== "x" && t !== "of");
+  return { words: w, q };
+}
+function cScore(words) {
+  const out = [];
+  for (const e of cIndex()) {
+    let s = 0, miss = 0, weak = 0;
+    for (const t of words) {
+      if (e.p.c.toLowerCase() === t) { s += 50; continue; }
+      if (e.w.includes(t)) s += 3;
+      else if (SIZE.test(t)) miss++;
+      else if (t.length >= 3 && e.w.some(x => x.startsWith(t))) s += 2;
+      else if (t.length >= 3 && e.n.includes(t)) s += 1.5;
+      else if (t.length >= 3 && e.o.includes(t)) { s += 1; weak++; }
+      else if (t.length >= 4 && !SIZE.test(t) && e.w.some(x => lev(t, x) <= (t.length >= 7 ? 2 : 1))) s += 1.5;
+      else miss++;
+    }
+    if (s > 0) out.push({ p: e.p, s, miss, weak });
+  }
+  out.sort((a, b) => a.miss - b.miss || a.weak - b.weak || b.s - a.s || a.p.n.length - b.p.n.length);
+  return out;
+}
+function cFind(text) {
+  let { words, q } = cParseItem(text);
+  if (!words.length) return { words, q, hits: [] };
+  let hits = cScore(words);
+  // "basmati 25kg": if no product has that size, treat it as the quantity
+  const sz = words.filter(t => SIZE.test(t));
+  if (q === null && sz.length && (!hits.length || hits[0].miss > 0)) {
+    const t = sz[sz.length - 1], rest = words.filter(x => x !== t);
+    if (rest.length) { const h2 = cScore(rest); if (h2.length && h2[0].miss === 0) { hits = h2; q = parseFloat(t); words = rest; } }
+  }
+  const best = hits.length ? hits[0].miss : 0;
+  if (best > words.length / 2) hits = [];
+  else if (hits.length) { const bw = hits[0].weak; hits = hits.filter(h => h.miss === best && h.weak === bw); }
+  return { words, q, hits: hits.slice(0, 6) };
+}
+function cAdd(p, q) {
+  q = q > 0 ? q : 1;
+  let line = Q.lines.find(l => l.c === p.c), was = 0;
+  if (line) { was = +line.q || 0; line.q = r2(was + q); }
+  else {
+    line = { c: p.c, n: p.n, u: p.u, t: p.t, p: p.p, lp: p.p, r: +p.r || 0, q };
+    if (p.x) line.x = 1;
+    Q.lines.push(line);
+  }
+  touched(); renderLines();
+  const row = document.querySelector(`tr[data-c="${CSS.escape(p.c)}"]`);
+  if (row) { row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
+  let t = `${esc(p.n)} × ${line.q}` + (was ? ` (was ${was})` : "");
+  t += line.p ? `, ${rs(r2(line.p * line.q))}` : `, <em>no price in the list; enter a rate in the table</em>`;
+  return t;
+}
+function cTotal() {
+  if (!Q.lines.length) return "The quote is empty.";
+  const T = computeTotals(Q.lines, Q.cust.gstin);
+  return `${Q.lines.length} ${Q.lines.length === 1 ? "line" : "lines"}, total ${rs(T.grand)}` + (T.gmLines && T.gmPct !== null ? `, GM ${T.gmPct.toFixed(1)}%` : "");
+}
+function cSay(html, kind) {
+  const d = document.createElement("div");
+  d.className = "bub bot" + (kind ? " " + kind : "");
+  d.innerHTML = html;
+  chatLog.appendChild(d); chatLog.scrollTop = chatLog.scrollHeight;
+  return d;
+}
+function cMe(text) {
+  const d = document.createElement("div"); d.className = "bub me"; d.textContent = text;
+  chatLog.appendChild(d); chatLog.scrollTop = chatLog.scrollHeight;
+}
+function cAsk(kind, label, opts, extra) {
+  const id = ++CHAT.seq;
+  CHAT.pend.push({ id, kind, opts, ...extra });
+  const btns = opts.map((o, i) => kind === "item"
+    ? `<button type="button" data-k="${id}" data-i="${i}"><b>${i + 1}</b><span>${esc(o.n)}</span><span class="pp">${o.p ? rs(o.p) : "No price"}</span></button>`
+    : `<button type="button" data-k="${id}" data-i="${i}"><b>${i + 1}</b><span>${esc(o.name)}</span><span class="pp">${esc(o.gstin || o.phone || "")}</span></button>`).join("");
+  cSay(`<p>${label}</p><div class="picks" data-k="${id}">${btns}<button type="button" class="skip" data-k="${id}" data-i="-1">${kind === "item" ? "None of these" : "New customer instead"}</button></div>`);
+}
+function cResolve(id, i) {
+  const k = CHAT.pend.findIndex(x => x.id === id); if (k < 0) return;
+  const pd = CHAT.pend.splice(k, 1)[0];
+  const box = chatLog.querySelector(`.picks[data-k="${id}"]`);
+  if (box) { box.classList.add("done"); const b = box.querySelector(`button[data-i="${i}"]`); b && b.classList.add("chosen"); }
+  if (pd.kind === "item") {
+    if (i < 0) { cSay(`Skipped “${esc(pd.text)}”. Try other words, or use the search box on the quote.`); return; }
+    cSay(`<p>Added ${cAdd(pd.opts[i], pd.q)}</p><span class="tot">${cTotal()}</span>`, "ok");
+  } else {
+    if (i < 0) { cSetCust({ name: pd.text }, true); return; }
+    cSetCust(pd.opts[i], false);
+  }
+  if (CHAT.pend.length) cSay(`${CHAT.pend.length} more to pick above.`);
+}
+function cSetCust(c, isNew) {
+  Q.cust = { name: c.name || "", gstin: c.gstin || "", contact: c.contact || "", phone: c.phone || "", email: c.email || "", addr: c.addr || "" };
+  Object.entries(custMap).forEach(([id, k]) => { $("#" + id).value = Q.cust[k]; });
+  touched(); renderTotals();
+  if (isNew) cSay(`<p>Customer set to <strong>${esc(c.name)}</strong> (new). Add GSTIN, phone or address in the Customer form, or type them here, e.g. “gstin 33ABCDE1234F1Z5”.</p>`, "ok");
+  else cSay(`<p>Customer: <strong>${esc(c.name)}</strong>${c.lastQuote ? `, last quoted ${esc(c.lastQuote)}` : ""}.</p>`, "ok");
+}
+function cCustomer(name) {
+  name = name.trim().replace(/[.:,-]+$/, "");
+  if (!name) return;
+  const hits = custSearch(name);
+  const exact = hits.find(c => c.name.toLowerCase() === name.toLowerCase());
+  if (exact || hits.length === 1) cSetCust(exact || hits[0], false);
+  else if (hits.length) cAsk("cust", `Which customer is “${esc(name)}”?`, hits.slice(0, 6), { text: name });
+  else cSetCust({ name }, true);
+}
+async function cRun(btn, status) {
+  if (CHAT.pend.length) { cSay(`“${esc(CHAT.pend[0].text)}” still needs a pick above. Choose one, or tap ${CHAT.pend[0].kind === "item" ? "None of these" : "New customer instead"}, then ask again.`); return; }
+  if (!Q.lines.length) { cSay("Add some items first."); return; }
+  if (!Q.cust.name.trim()) { cSay("Who is the quote for? Type “for” and the customer’s name."); return; }
+  cSay(status);
+  CHAT.busy = true;
+  btn.click();
+  await new Promise(r => setTimeout(r, 60));
+  for (let i = 0; i < 400 && btn.disabled; i++) await new Promise(r => setTimeout(r, 50));
+  CHAT.busy = false;
+  const m = $("#msg");
+  cSay(esc(m.textContent || "Done."), m.classList.contains("err") ? "err" : m.classList.contains("ok") ? "ok" : "");
+}
+const HELP = `<p>Type one or more items, separated by commas or new lines. Put the quantity anywhere: “paneer 1kg 5”, “5 x paneer”, “paneer ×5”.</p>
+<ul><li><strong>for Dubai Cafe</strong>: sets the customer</li>
+<li><strong>gm 12</strong>: 12% markup on cost for every line</li>
+<li><strong>set paneer 8</strong>: changes a quantity</li>
+<li><strong>remove paneer</strong>: takes a line off</li>
+<li><strong>net 15</strong> or <strong>cash</strong>: payment terms</li>
+<li><strong>note: delivery Monday</strong>: adds a note</li>
+<li><strong>total</strong>: shows what’s in the quote</li>
+<li><strong>save</strong> or <strong>pdf</strong>: saves, or saves and downloads</li>
+<li><strong>new quote</strong>: starts over</li></ul>`;
+function cLineFor(text) {
+  const toks = cNorm(text).split(" ").filter(Boolean);
+  if (!toks.length) return -1;
+  let best = -1, bs = 0;
+  Q.lines.forEach((l, i) => { const n = cNorm(l.n); const s = toks.filter(t => n.includes(t)).length / toks.length; if (s > bs) { bs = s; best = i; } });
+  return bs >= 0.5 ? best : -1;
+}
+async function cHandle(raw) {
+  let text = raw.trim(); if (!text) return;
+  if (!$("#quotesPage").hidden) showPage("new");
+  // a reply of just a number picks from the oldest open choice
+  if (/^\d$/.test(text) && CHAT.pend.length) { const pd = CHAT.pend[0], i = +text - 1; if (pd.opts[i]) { cResolve(pd.id, i); return; } }
+  // GSTIN and phone can appear anywhere
+  const gst = text.match(/\b(\d{2}[A-Za-z]{5}\d{4}[A-Za-z][A-Za-z0-9]Z[A-Za-z0-9])\b/i);
+  if (gst) { Q.cust.gstin = gst[1].toUpperCase(); $("#cGstin").value = Q.cust.gstin; touched(); renderTotals(); text = text.replace(gst[0], " ").replace(/\bgst(in)?\s*[:\-]?\s*(?=\s|$)/i, " "); cSay(`GSTIN set to ${esc(Q.cust.gstin)}` + (isInterState(Q.cust.gstin) ? " (out of state, so IGST applies)." : "."), "ok"); }
+  const ph = text.match(/(?:phone|mobile|ph|mob|contact no)\s*[:\-]?\s*(\+?[\d\s-]{10,14})/i);
+  if (ph) { Q.cust.phone = ph[1].trim(); $("#cPhone").value = Q.cust.phone; touched(); text = text.replace(ph[0], " "); cSay(`Phone set to ${esc(Q.cust.phone)}.`, "ok"); }
+  // whole-message note
+  const nt = text.match(/^notes?\s*[:\-]\s*([\s\S]+)$/i);
+  if (nt) { Q.notes = nt[1].trim(); $("#qNotes").value = Q.notes; touched(); cSay("Note added to the quote.", "ok"); return; }
+  // "quote for X: items..." → customer, then the rest as items
+  text = text.replace(/^(?:new\s+)?(?:quote|quotation)\s+(?:for|to)\s+([^:\n,]+?)\s*(?::|\n|$)/i, (m, n) => { cCustomer(n); return "\n"; });
+  const segs = text.split(/\n|,|;|\s\+\s/).flatMap(s => s.split(/(?<=\d)\s+and\s+/i)).map(s => s.trim()).filter(Boolean);
+  const after = [];
+  let added = [];
+  const flush = () => { if (added.length) { cSay(`<p>Added</p><ul>${added.map(a => `<li>${a}</li>`).join("")}</ul><span class="tot">${cTotal()}</span>`, "ok"); added = []; } };
+  for (const s0 of segs) {
+    const s = s0.replace(/\s+/g, " ");
+    const lo = s.toLowerCase();
+    let m;
+    if (/^(help|\?|what can you do)/.test(lo)) { flush(); cSay(HELP); continue; }
+    if ((m = s.match(/^(?:customer|cust|for|to)\s*[:\-]?\s+(.+)$/i)) || (m = s.match(/^customer\s*:\s*(.+)$/i))) { flush(); cCustomer(m[1]); continue; }
+    if ((m = lo.match(/^(?:gm|margin|markup)\s*[:=@]?\s*(-?\d+(?:\.\d+)?)\s*%?$/)) || (m = lo.match(/^(-?\d+(?:\.\d+)?)\s*%\s*(?:gm|margin|markup)$/))) { flush(); after.push(["gm", +m[1]]); continue; }
+    if ((m = lo.match(/^(?:payment\s*)?(?:terms?\s*[:\-]?\s*)?(cash(?:\s*(?:and|&)\s*carry)?|net\s*-?\s*(7|15|30))(?:\s*days)?$/))) {
+      flush(); Q.terms = m[2] ? "net" + m[2] : "cash"; renderTerms(); touched();
+      cSay(`Payment terms: ${esc(TERMS.find(t => t.id === Q.terms).label)}.`, "ok"); continue;
+    }
+    if (/^(total|summary|show|list|show quote|what'?s in it)$/.test(lo)) {
+      flush();
+      cSay(Q.lines.length ? `<p>${esc(Q.cust.name || "No customer yet")}</p><ul>${Q.lines.map(l => `<li>${esc(l.n)} × ${l.q}${l.p ? `, ${rs(r2(l.p * l.q))}` : ", no rate"}</li>`).join("")}</ul><span class="tot">${cTotal()}</span>` : "The quote is empty. Type an item to start.");
+      continue;
+    }
+    if (/^(save|save quote|save it)$/.test(lo)) { flush(); after.push(["save"]); continue; }
+    if (/^(pdf|download|generate|send|done|download pdf|make pdf|generate (?:the )?(?:quote|quotation|pdf)|create (?:the )?(?:quote|quotation|pdf))$/.test(lo)) { flush(); after.push(["pdf"]); continue; }
+    if (/^(new|new quote|clear|start over|reset)$/.test(lo)) { flush(); after.push(["new"]); continue; }
+    if ((m = s.match(/^(?:remove|delete|drop)\s+(.+)$/i))) {
+      flush(); const i = cLineFor(m[1]);
+      if (i < 0) cSay(`Nothing in the quote matches “${esc(m[1])}”.`);
+      else { const l = Q.lines.splice(i, 1)[0]; touched(); renderLines(); cSay(`<p>Removed ${esc(l.n)}.</p><span class="tot">${cTotal()}</span>`, "ok"); }
+      continue;
+    }
+    if ((m = s.match(/^(?:set|change|make|update)\s+(.+?)\s+(?:to\s+|qty\s+|=\s*)?(\d+(?:\.\d+)?)$/i))) {
+      const i = cLineFor(m[1]);
+      if (i >= 0) { flush(); Q.lines[i].q = +m[2]; touched(); renderLines(); cSay(`<p>${esc(Q.lines[i].n)} is now × ${+m[2]}.</p><span class="tot">${cTotal()}</span>`, "ok"); continue; }
+    }
+    // a saved customer's name on its own (no quantity) sets the customer
+    if (!/\d/.test(s)) {
+      const ch = custSearch(s), ex = ch.find(c => c.name.toLowerCase() === lo);
+      if (ex || ch.length === 1) { flush(); cSetCust(ex || ch[0], false); continue; }
+    }
+    // otherwise it's an item
+    const f = cFind(s);
+    if (!f.words.length) { flush(); cSay(`I couldn’t find a product in “${esc(s)}”.`); continue; }
+    const top = f.hits;
+    const code = top.find(h => h.p.c.toLowerCase() === f.words.join(" "));
+    const exact = top.length && top[0].miss === 0 && top[0].s >= 3 * f.words.length;
+    const clear = code || (top.length && top[0].miss === 0 && (top.length === 1 || top[0].s >= top[1].s + 3 || (exact && top[0].s > top[1].s)));
+    if (!top.length) { flush(); cSay(`No product matches “${esc(f.words.join(" "))}”. Try the brand or a shorter name.`); }
+    else if (clear) added.push(cAdd((code || top[0]).p, f.q));
+    else { flush(); cAsk("item", (top[0].miss ? `No exact match for “${esc(s)}”. Closest` : `Which one for “${esc(s)}”`) + (f.q ? `, × ${f.q}` : "") + "?", top.map(h => h.p), { text: s, q: f.q }); }
+  }
+  flush();
+  for (const [a, v] of after) {
+    if (a === "gm") {
+      DEF_GM = v; dgEl.value = v; store.set("rm-default-gm", v);
+      let n = 0; Q.lines.forEach(l => { if (applyGm(l, v)) n++; });
+      if (n) { touched(); renderLines(); }
+      cSay(n ? `<p>GM ${v}% applied to ${n} ${n === 1 ? "line" : "lines"}.</p><span class="tot">${cTotal()}</span>` : `GM ${v}% saved; none of the lines has a cost yet. Add items, then say “gm ${v}” again.`, n ? "ok" : "");
+    }
+    else if (a === "save") await cRun($("#btnSave"), "Saving…");
+    else if (a === "pdf") await cRun($("#btnPdf"), "Saving and making the PDF…");
+    else if (a === "new") {
+      if (!leaveOk()) { cSay("Kept the current quote."); continue; }
+      const by = Q.by; Q = blankQuote(); Q.by = by; persist(); fillForm(); msg("", ""); CHAT.pend = [];
+      chatLog.querySelectorAll(".picks").forEach(b => b.classList.add("done"));
+      cSay("Started a new quote. Who is it for?", "ok");
+    }
+  }
+}
+function cOpen(open) {
+  chatEl.hidden = !open; $("#btnChat").setAttribute("aria-expanded", String(open));
+  if (open) {
+    if (!chatLog.children.length) {
+      cSay(`<p>Tell me who the quote is for and what they need. For example:</p>
+        <div class="chips"><button type="button" data-say="quote for Dubai Cafe">quote for Dubai Cafe</button><button type="button" data-say="amul salted butter 500g 10, milky mist paneer 1kg 5">amul salted butter 500g 10, milky mist paneer 1kg 5</button><button type="button" data-say="gm 12">gm 12</button><button type="button" data-say="pdf">pdf</button><button type="button" data-say="help">help</button></div>`);
+    }
+    chatIn.focus();
+  }
+}
+async function cSend() {
+  const t = chatIn.value; if (!t.trim() || CHAT.busy) return;
+  chatIn.value = ""; chatIn.style.height = "";
+  cMe(t);
+  $("#chatSend").disabled = true;
+  try { await cHandle(t); } catch (e) { console.warn(e); cSay("Something went wrong: " + esc(e.message || e), "err"); }
+  finally { $("#chatSend").disabled = false; chatIn.focus(); }
+}
+$("#btnChat").addEventListener("click", () => cOpen(chatEl.hidden));
+$("#chatClose").addEventListener("click", () => { cOpen(false); $("#btnChat").focus(); });
+$("#chatSend").addEventListener("click", cSend);
+chatIn.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); cSend(); } else if (e.key === "Escape") { cOpen(false); $("#btnChat").focus(); } });
+chatIn.addEventListener("input", () => { chatIn.style.height = ""; chatIn.style.height = Math.min(chatIn.scrollHeight, 140) + "px"; });
+chatLog.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.say) { chatIn.value = b.dataset.say; cSend(); return; }
+  if (b.dataset.k) cResolve(+b.dataset.k, +b.dataset.i);
+});
+
 const configured = !!window.firebase && !/^PASTE/.test(FIREBASE_CONFIG.apiKey) && !/^PASTE/.test(FIREBASE_CONFIG.appId) && !/^PASTE/.test(OWNER_EMAIL);
 if (!window.firebase) showGate("Couldn’t load the sign-in service. Check your internet connection and reload the page.", "");
 else if (!configured) showGate("This copy isn’t connected yet. Paste your Firebase settings and owner email into the settings block at the top of the script.", "");
